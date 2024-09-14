@@ -104,12 +104,14 @@ Function UnRegisterObject(ObjectReference obj)
 			NameClearingAliases[objDoorSealCast.doorIndex].Clear()
 		EndIf
 		Registry[objDoorSealCast.doorIndex] = None
+		objDoorSealCast.doorIndex = -1
 	EndIf
 	If (objSubmersibleCast && objSubmersibleCast.isActuallySubmersible)
 		If (objSubmersibleCast.isSubmerged)
 			NameClearingAliases[objSubmersibleCast.myIndex].Clear()
 		EndIf
 		Registry[objSubmersibleCast.myIndex] = None
+		objSubmersibleCast.myIndex = -1
 	EndIf
 EndFunction
 
