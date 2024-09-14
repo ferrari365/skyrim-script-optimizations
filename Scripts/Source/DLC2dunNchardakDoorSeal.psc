@@ -12,7 +12,7 @@ Message property SealedDoorMessage Auto							;Message to display on interaction
 bool initialized									;Have we initialized the seal yet?
 bool isWaitingFor3DToLoad						;Are we waiting for our 3D to load?
 bool Property isSealed = True Auto Conditional	;Are we still sealed?
-int doorIndex										;Registry index on DLC2dunNchardakTracking used to clear the door's name alias.
+int Property doorIndex = -1 Auto Hidden				;Registry index on DLC2dunNchardakTracking used to clear the door's name alias. ferrari365 - changed into property for external access
 bool busy = False									;Are we in the process of opening or closing?
 bool isReleasingSeal = False						;Are we in the process of opening? Used to determine if OnUpdate should process this.
 bool isRestoringSeal = False						;Are we in the process of closing? Used to determine if OnUpdate should process this.
@@ -36,12 +36,15 @@ Event OnCellAttach()
 			LinkedDoor.BlockActivation(True)
 			LinkedDoor.SetNoFavorAllowed(True)
 			;Request a registry index from the Nchardak Tracking Quest.
-			doorIndex = (DLC2dunNchardakTracking as DLC2dunNchardakTrackingScript).RegisterObject(LinkedDoor)
-			(DLC2dunNchardakTracking as DLC2dunNchardakTrackingScript).ClearName(doorIndex, LinkedDoor)
+			;ferrari365 - moved registration to parent script's OnCellAttach event
+			; doorIndex = (DLC2dunNchardakTracking as DLC2dunNchardakTrackingScript).RegisterObject(LinkedDoor)
+			; (DLC2dunNchardakTracking as DLC2dunNchardakTrackingScript).ClearName(doorIndex, LinkedDoor)
 		EndIf
 		if (!isSealed)
 			ReleaseSeal()
 		EndIf
+	Else
+		Parent.OnCellAttach()
 	EndIf
 	if (Is3DLoaded())
 		if (!isSealed)
@@ -56,6 +59,7 @@ Event OnCellAttach()
 EndEvent
 
 Event OnCellDetach()
+	Parent.OnCellDetach()
 	if toggledWhileDisabled
 		UnregisterForUpdate()
 	EndIf
