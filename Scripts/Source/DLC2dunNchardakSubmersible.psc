@@ -47,7 +47,7 @@ EndEvent
 Event OnCellDetach()
 	;ferrari365 - unregister when the object is no longer attached
 	If (isActuallySubmersible || self as DLC2dunNchardakDoorSeal)
-		(DLC2dunNchardakTracking as DLC2dunNchardakTrackingScript).UnRegisterObject(Self)
+		myIndex = (DLC2dunNchardakTracking as DLC2dunNchardakTrackingScript).UnRegisterObject(Self)
 	EndIf
 EndEvent
 

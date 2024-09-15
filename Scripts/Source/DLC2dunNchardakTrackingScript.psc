@@ -51,25 +51,41 @@ objects get loaded/unloaded on each transition (see also complementary changes t
 ;Registration ------------------------------------------------------------------
 ;--------------
 ;Add a new object to the tracking quest's registry.
-int Function RegisterObject(ObjectReference obj)
-	int localIndex = -1
-	;ferrari365 - cast and cache the passed object as door seal and submersible object (those are not mutually exclusive)
+int Function RegisterObject(DLC2dunNchardakSubmersible obj)
+	;ferrari365 - cast and cache the passed object as door seal
 	DLC2dunNchardakDoorSeal objDoorSealCast = obj as DLC2dunNchardakDoorSeal
-	DLC2dunNchardakSubmersible objSubmersibleCast = obj as DLC2dunNchardakSubmersible
-
-	;ferrari365 - if the object is a door seal, handle linked door first, if one exists
-	If (objDoorSealCast && objDoorSealCast.LinkedDoor)
-		;ferrari365 - update door index and hide it's activation prompt if it's sealed or not a load door
-		objDoorSealCast.doorIndex = IndexRequest(objDoorSealCast.LinkedDoor)
-		If (objDoorSealCast.isSealed || !objDoorSealCast.IsLoadDoor)
-			NameClearingAliases[objDoorSealCast.doorIndex].ForceRefTo(objDoorSealCast.LinkedDoor)
+	
+	;ferrari365 - cache external calls early. Possibly redundant, as it's unlikely they can lead to race conditions in here to begin with
+	ObjectReference sealedDoor = None
+	int localIndex = -1
+	bool submersibleStatus = obj.isActuallySubmersible
+	bool submergedStatus = obj.isSubmerged
+	bool sealedStatus = False
+	bool loadDoorStatus = False
+	
+	If (objDoorSealCast)
+		sealedDoor = objDoorSealCast.LinkedDoor
+		If (sealedDoor)
+			sealedStatus = objDoorSealCast.isSealed
+			loadDoorStatus = objDoorSealCast.IsLoadDoor
 		EndIf
 	EndIf
+
+	;ferrari365 - if the object is a door seal, handle linked door first, if one exists
+	If (sealedDoor)
+		;ferrari365 - update door index and hide it's activation prompt if it's sealed or not a load door
+		localIndex = IndexRequest(sealedDoor)
+		If (sealedStatus || !loadDoorStatus)
+			NameClearingAliases[localIndex].ForceRefTo(sealedDoor)
+		EndIf
+		objDoorSealCast.doorIndex = localIndex
+		localIndex = -1
+	EndIf
 	;ferrari365 - handle the object itself
-	If (objSubmersibleCast && objSubmersibleCast.isActuallySubmersible)
+	If (submersibleStatus)
 		;ferrari365 - update object index and hide it's activation prompt if it's submerged
 		localIndex = IndexRequest(obj)
-		If (objSubmersibleCast.isSubmerged)
+		If (submergedStatus)
 			NameClearingAliases[localIndex].ForceRefTo(obj)
 		EndIf
 	EndIf
@@ -94,25 +110,40 @@ int Function IndexRequest(ObjectReference obj)
 EndFunction
 
 ;ferrari365 - Remove an existing object from the registry, same as registration, but in reverse
-Function UnRegisterObject(ObjectReference obj)
+int Function UnRegisterObject(DLC2dunNchardakSubmersible obj)
 	DLC2dunNchardakDoorSeal objDoorSealCast = obj as DLC2dunNchardakDoorSeal
-	DLC2dunNchardakSubmersible objSubmersibleCast = obj as DLC2dunNchardakSubmersible
+	ObjectReference sealedDoor = None
+	int localIndexDoor = -1
+	int localIndexObj = obj.myIndex
+	bool submersibleStatus = obj.isActuallySubmersible
+	bool submergedStatus = obj.isSubmerged
+	bool sealedStatus = False
+	bool loadDoorStatus = False
 
-	If (objDoorSealCast && objDoorSealCast.LinkedDoor)
-		;ferrari365 - restore the name first, then free the index. Race condition prevention!
-		If (objDoorSealCast.isSealed || !objDoorSealCast.IsLoadDoor)
-			NameClearingAliases[objDoorSealCast.doorIndex].Clear()
+	If (objDoorSealCast)
+		sealedDoor = objDoorSealCast.LinkedDoor
+		If (sealedDoor)
+			localIndexDoor = objDoorSealCast.doorIndex
+			sealedStatus = objDoorSealCast.isSealed
+			loadDoorStatus = objDoorSealCast.IsLoadDoor
 		EndIf
-		Registry[objDoorSealCast.doorIndex] = None
+	EndIf
+
+	If (sealedDoor)
+		;ferrari365 - restore the name first, then free the index. Race condition prevention!
+		If (sealedStatus || !loadDoorStatus)
+			NameClearingAliases[localIndexDoor].Clear()
+		EndIf
+		Registry[localIndexDoor] = None
 		objDoorSealCast.doorIndex = -1
 	EndIf
-	If (objSubmersibleCast && objSubmersibleCast.isActuallySubmersible)
-		If (objSubmersibleCast.isSubmerged)
-			NameClearingAliases[objSubmersibleCast.myIndex].Clear()
+	If (submersibleStatus)
+		If (submergedStatus)
+			NameClearingAliases[localIndexObj].Clear()
 		EndIf
-		Registry[objSubmersibleCast.myIndex] = None
-		objSubmersibleCast.myIndex = -1
+		Registry[localIndexObj] = None
 	EndIf
+	return -1
 EndFunction
 
 ;/
@@ -161,10 +192,12 @@ EndFunction
 
 Event OnUpdate()
 	int i = 0
+	DLC2dunNchardakSubmersible currentObject = None
 	While (i < Registry.Length)
 		;ferrari365 - removed None check to prevent short circuit on the first encountered None object (there could be valid objects further along the indexes)
-		If (Registry[i] as DLC2dunNchardakSubmersible)
-			(Registry[i] as DLC2dunNchardakSubmersible).CheckSubmerged()
+		currentObject = Registry[i] as DLC2dunNchardakSubmersible
+		If (currentObject)
+			currentObject.CheckSubmerged()
 		EndIf
 		i = i + 1
 	EndWhile
