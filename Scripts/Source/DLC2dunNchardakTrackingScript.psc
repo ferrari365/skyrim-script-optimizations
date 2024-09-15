@@ -129,7 +129,7 @@ int Function UnRegisterObject(DLC2dunNchardakSubmersible obj)
 		EndIf
 	EndIf
 
-	If (sealedDoor)
+	If (sealedDoor && localIndexDoor > -1)
 		;ferrari365 - restore the name first, then free the index. Race condition prevention!
 		If (sealedStatus || !loadDoorStatus)
 			NameClearingAliases[localIndexDoor].Clear()
@@ -137,7 +137,7 @@ int Function UnRegisterObject(DLC2dunNchardakSubmersible obj)
 		Registry[localIndexDoor] = None
 		objDoorSealCast.doorIndex = -1
 	EndIf
-	If (submersibleStatus)
+	If (submersibleStatus && localIndexObj > -1)
 		If (submergedStatus)
 			NameClearingAliases[localIndexObj].Clear()
 		EndIf
