@@ -2,3 +2,5 @@
 Scripts/*.pex
 SkyrimSE.code-workspace
 skyrimse.ppj
+*.bsa
+*.esl
