@@ -28,26 +28,50 @@ Explosion Property DLC2MiraakTeleportReturnExp auto
 EffectShader property DLC2MiraakTeleportStartFXS auto
 EffectShader property DLC2MiraakTeleportReturnFXS auto
 
-
+int SoulStealInternalState = -1 ; The animation state for Miraak while appearing/disappearing. 0 is Appearing, 1 is disappearing.
+bool LastMoveToAppearAtRef
+bool LastUseIMOD
 
 ImageSpaceModifier Property DLC2MiraakTeleportIMODStatic auto
 
 bool Appeared
+bool CrossFadeUpdating = false
 
 Event OnUpdate()
+;	debug.trace(self + "OnUpdate()")
 	;assumes this is only ever called for the IMOD effect
+	
+	; SoulStealInternalState should be in -1 if not needing something specific here.
+	; These are built in delays for soul stealing.
+	if SoulStealInternalState == 0
+		; Attempting to Appear
+		DelayedAppear()
+		CrossFadeOnUpdate()
+	elseif SoulStealInternalState == 1
+		DelayedDisappear()
+	endif
 
+EndEvent
+
+Function CrossFadeOnUpdate()
+;	debug.trace(self + "CrossFadeOnUpdate()")
+	if CrossFadeUpdating || LastUseIMOD == false
+		return
+	endif
+
+;	debug.trace(self + "CrossFadeOnUpdate()")
 	bool IMOD = false
 
 	float distance = 1500.0
 
 	; ferrari365 - cache the player
-	Actor PlayerRef = Game.GetForm(0x00000014) as Actor
+	ObjectReference PlayerRef = Game.GetForm(0x00000014) as ObjectReference
 
 	; ferrari365 - exit the loop after 120 seconds (same amount of time as in DLC2SoulStealScript), just in case it's still stuck
 	int failsafe = 240
 
 	While Appeared && failsafe > 0
+		CrossFadeUpdating = true
 		Utility.Wait(0.5) ; small wait to stop the loop from spinning as quickly as possible and wrecking the scripting engine
 		if GetDistance(PlayerRef) <= distance
 			if !IMOD
@@ -63,6 +87,7 @@ Event OnUpdate()
 
 ;/ ferrari365 - original while loop
 	While Appeared
+		CrossFadeUpdating = true
 		if GetDistance(Game.GetPlayer()) <= distance && IMOD == false
 			IMOD = true
 			DLC2MiraakTeleportIMODStatic.ApplyCrossFade(3)
@@ -75,73 +100,132 @@ Event OnUpdate()
 	endWhile
 /;
 
-EndEvent
+	CrossFadeUpdating = false	
+	if IMOD == true 
+		;USSEP 4.3.4 Bug #34782: darthvitrial added this check, in case the IMOD is somehow not properly removed due to a race condition
+		ImageSpaceModifier.RemoveCrossFade(3.0)
+	endif
 
+EndFunction
 
 Function OnLoad()
+;	debug.trace(self + "OnLoad")
 	if AppearOnLoad && Appeared == false
 		Appeared = true
 		Appear(MoveToAppearAtRef = false)
+	else
+		;Stay invisible damn you Miraak!
+		setAlpha(0.0)
 	endif
 
 EndFunction
 
 Function Appear(bool MoveToAppearAtRef = true, bool UseIMOD = true)
+;	debug.trace(self + "Appear()")
 
-; debug.trace(self + "Appear()")
-
+	SoulStealInternalState = 0;
+	LastMoveToAppearAtRef = MoveToAppearAtRef
+	LastUseIMOD = UseIMOD
 	Appeared = true
+	
+	if IsDisabled()
+;		debug.trace(self + "Appear() - Reenabling")
+		Enable()
+	endif
+	
+; 	debug.trace(self + "setAlpha(0)")
+	setAlpha(0.0)
+	
+	RegisterForSingleUpdate(0.001)
+EndFunction
 
-	if MoveToAppearAtRef && AppearAtRef != None
+Function DelayedAppear()
+;	debug.trace(self + "DelayedAppear()")
+
+	if SoulStealInternalState != 0
+		return
+	endif
+;	debug.trace(self + "DelayedAppear()")
+	
+	;Stay invisible damn you Miraak!
+	setAlpha(0.0)
+
+	if LastMoveToAppearAtRef && AppearAtRef != None
 		MoveTo(AppearAtRef, 200.0)
 	endif
-
-	if IsDisabled()
-		Enable(true)
-	endif
-
-; 	debug.trace(self + "setAlpha(0)")
-	SetAlpha(0.0)
-
 
 ; 	debug.trace(self + "Placing Explosion.")	
 	PlaceAtMe(DLC2MiraakTeleportExp)
 
-	if UseIMOD
-		RegisterForSingleUpdate(0.001)
-	endif
-
 ; 	debug.trace(self + "Waiting...")	
-	Utility.Wait(2.0)
+	SoulStealInternalState = -1 ; Unfortunatly, got to do this before the utility.wait call.
 	
-	SetAlpha(1.0, true)
-
-	DLC2MiraakTeleportStartFXS.Play(self)
-
-; 	debug.trace(self + "setAlpha(1, true)")
+	utility.wait(2.0)
 	
+;	debug.trace(self + "DelayedAppear() - setAlpha (1, true)")
+	setAlpha(1.0, true)
 
-
+	DLC2MiraakTeleportStartFXS.play(self)
+	SoulStealInternalState = -1
 EndFunction
 
 Function Disappear()
+	if Appeared == false
+		return
+	endif
+
+;	debug.trace(self + "Disappear()")
 
 	Appeared = false
-
-	PlaceAtMe(DLC2MiraakTeleportReturnExp)
-
-	DLC2MiraakTeleportReturnFXS.Play(self)
+	SoulStealInternalState = 1;
 	
-	Utility.Wait(0.5)
+	RegisterForSingleUpdate(0.001)
+EndFunction
+
+Function DelayedDisappear()
+;	debug.trace(self + "DelayedDisappear()")
+
+	HandleReturnTeleportExplodeExp()
+	DLC2MiraakTeleportReturnFXS.play(self)
+	
+	utility.wait(0.5)
+	
+	StartMiraakFadeOut()
+EndFunction
+
+Function HandleReturnTeleportExplodeExp()
+	; Separating this out so it hopefully stops hanging the rest of the fade out functionality.
+;	Debug.Trace(self + "HandleTeleportExplode()")
+
+	if DLC2MiraakTeleportReturnExp != None
+		placeAtMe(DLC2MiraakTeleportReturnExp)
+	else
+;		debug.trace(self + "HandleTeleportExplode() - Failed to load DLC2MiraakTeleportReturnExp")
+	endif
+EndFunction
+
+Function StartMiraakFadeOut()
+;	debug.trace(self + "StartMiraakFadeOut()")
 
 	ImageSpaceModifier.RemoveCrossFade(3.0)
 
-	SetAlpha(0.0, true)
-	
-	Disable(true)
+	setAlpha(0.1, true) ; On the wiki, it says (0, true) should not work. So this set up is the next best thing.
 
+	SoulStealInternalState = -1
+	
+	utility.wait(0.3)
+	AfterMiraakFadeOut()
+EndFunction
+
+Function AfterMiraakFadeOut()
+;	debug.trace(self + "AfterMiraakFadeOut()")
+	setAlpha(0.0)
+	
 	if DisappearToRef
 		MoveTo(DisappearToRef)
 	endif
-
+	
+	utility.wait (0.001)
+	setAlpha(0.0)
+	Disable()
 EndFunction
