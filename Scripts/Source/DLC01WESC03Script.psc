@@ -21,10 +21,10 @@ ReferenceAlias property SceneMarker4 Auto
 
 Event OnLoad()
 	;ferrari365 - cache local variables
-	Actor playerRef = Game.GetForm(0x00000014) as Actor
+	ObjectReference playerRef = Game.GetForm(0x00000014) as ObjectReference
 	Cell localCell = Self.GetParentCell()
 	ObjectReference sceneCenterRef = SceneCenterMarker.GetReference()
-	If (localCell && sceneCenterRef)
+	If (localCell != None && sceneCenterRef != None)
 		;ferrari365 - extra precautionary condition check to exit the loop if the cell is no longer attached
 		While (localCell.IsAttached() && DLC01_WESC03.GetCurrentStageID() == 0)
 			If (sceneCenterRef.GetDistance(playerRef) > 2000.0)
